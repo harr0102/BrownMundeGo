@@ -5,16 +5,16 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/paypal/gatt"
 	"github.com/paypal/gatt/examples/option"
 )
+
+var targetName = "VHM-ble"
 
 var done = make(chan struct{})
 
@@ -31,22 +31,20 @@ func onStateChanged(d gatt.Device, s gatt.State) {
 }
 
 func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
-	id := strings.ToUpper(flag.Args()[0])
-	if strings.ToUpper(p.ID()) != id {
-		return
+	if a.LocalName == targetName {
+
+		// Stop scanning once we've got the peripheral we're looking for.
+		p.Device().StopScanning()
+
+		fmt.Printf("\nPeripheral ID:%s, NAME:(%s)\n", p.ID(), p.Name())
+		fmt.Println("  Local Name        =", a.LocalName)
+		fmt.Println("  TX Power Level    =", a.TxPowerLevel)
+		fmt.Println("  Manufacturer Data =", a.ManufacturerData)
+		fmt.Println("  Service Data      =", a.ServiceData)
+		fmt.Println("")
+
+		p.Device().Connect(p)
 	}
-
-	// Stop scanning once we've got the peripheral we're looking for.
-	p.Device().StopScanning()
-
-	fmt.Printf("\nPeripheral ID:%s, NAME:(%s)\n", p.ID(), p.Name())
-	fmt.Println("  Local Name        =", a.LocalName)
-	fmt.Println("  TX Power Level    =", a.TxPowerLevel)
-	fmt.Println("  Manufacturer Data =", a.ManufacturerData)
-	fmt.Println("  Service Data      =", a.ServiceData)
-	fmt.Println("")
-
-	p.Device().Connect(p)
 }
 
 func onPeriphConnected(p gatt.Peripheral, err error) {
@@ -148,12 +146,14 @@ func onPeriphDisconnected(p gatt.Peripheral, err error) {
 	close(done)
 }
 
-func main() {
-	flag.Parse()
-	if len(flag.Args()) != 1 {
-		log.Fatalf("usage: %s [options] peripheral-id\n", os.Args[0])
-	}
+func startMsg() {
+	fmt.Println("----------------------------- BrownMundeGo -----------------------------")
+	fmt.Println("| Made by Shuja Hussain & Harry Singh ")
+	fmt.Println("| Target: \n> ", targetName)
+}
 
+func main() {
+	startMsg()
 	d, err := gatt.NewDevice(option.DefaultClientOptions...)
 	if err != nil {
 		log.Fatalf("Failed to open device, err: %s\n", err)
