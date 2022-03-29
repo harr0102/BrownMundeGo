@@ -5,8 +5,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -14,7 +16,7 @@ import (
 	"github.com/paypal/gatt/examples/option"
 )
 
-var targetName = "VHM-ble"
+var foundTd TargetDevice
 
 var done = make(chan struct{})
 
@@ -31,7 +33,7 @@ func onStateChanged(d gatt.Device, s gatt.State) {
 }
 
 func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
-	if a.LocalName == targetName {
+	if a.LocalName == foundTd.Name {
 
 		// Stop scanning once we've got the peripheral we're looking for.
 		p.Device().StopScanning()
@@ -86,7 +88,9 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 
 			if strings.Contains(c.Properties().String(), "write") {
 				fmt.Println("DONE NOW")
-				p.WriteCharacteristic(c, []byte("ATRV\r\n"), false)
+				for _, cmd := range foundTd.Commands {
+					p.WriteCharacteristic(c, []byte(cmd+"\r\n"), false)
+				}
 			}
 
 			// Read the characteristic, if possible.
@@ -149,11 +153,53 @@ func onPeriphDisconnected(p gatt.Peripheral, err error) {
 func startMsg() {
 	fmt.Println("----------------------------- BrownMundeGo -----------------------------")
 	fmt.Println("| Made by Shuja Hussain & Harry Singh ")
-	fmt.Println("| Target: \n> ", targetName)
 }
 
-func main() {
-	startMsg()
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// SERVER START
+
+type TargetDevice struct {
+	Name     string   `json:"name"`
+	Commands []string `json:"commands"`
+}
+
+func initAttack(w http.ResponseWriter, r *http.Request) {
+	// Declare a new Person struct.
+	var td TargetDevice
+
+	// Try to decode the request body into the struct. If there is an error,
+	// respond to the client with the error message and a 400 status code.
+	err := json.NewDecoder(r.Body).Decode(&td)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Do something with the TargetDevice struct...
+	fmt.Fprintf(w, "TargetDevice: %+v", td)
+	foundTd = td
+
+	taber()
+}
+
+// An async function that starts a local server
+
+func startServer() {
+	fileServer := http.FileServer(http.Dir("./static"))
+	http.Handle("/", fileServer)
+	http.HandleFunc("/targetdevice/attack", initAttack)
+
+	fmt.Printf("| Starting server at port 8080\n")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// SERVER STOP
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//TODO: CHANGE NAME
+func taber() {
 	d, err := gatt.NewDevice(option.DefaultClientOptions...)
 	if err != nil {
 		log.Fatalf("Failed to open device, err: %s\n", err)
@@ -170,4 +216,9 @@ func main() {
 	d.Init(onStateChanged)
 	<-done
 	fmt.Println("Done")
+}
+
+func main() {
+	startMsg()
+	startServer()
 }

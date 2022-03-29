@@ -1,0 +1,39 @@
+<html>
+
+<head>
+  <title>BrownMundeGo</title>
+</head>
+
+<body>
+  <center>
+    <h1>BrownMundeGo</h1>
+  </center>
+
+  <input type="text" name="Tname" id="name" placeholder="Target name"> <br />
+  <textarea id="w3review" name="w3review" rows="4" cols="50"></textarea>
+  <input type="submit" name="submit" value="Scan" onclick="run()">
+  <script>
+    function run() {
+      const name = document.getElementById("name").value;
+      const commands = document.getElementById("w3review").value.split("\n")
+
+
+      fetch('/targetdevice/attack', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: name,
+          commands: commands
+        })
+      })
+        .then(data => {
+          console.log(data)
+        })
+        .catch(error => console.error(error))
+    }
+  </script>
+</body>
+
+</html>
