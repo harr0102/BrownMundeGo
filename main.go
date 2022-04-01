@@ -5,10 +5,10 @@
 package main
 
 import (
-	"flag"
+	"encoding/json"
 	"fmt"
 	"log"
-	"os"
+	"net/http"
 	"strings"
 	"time"
 
@@ -16,13 +16,16 @@ import (
 	"github.com/paypal/gatt/examples/option"
 )
 
+var foundTd TargetDevice
+
 var done = make(chan struct{})
 
 func onStateChanged(d gatt.Device, s gatt.State) {
 	fmt.Println("State:", s)
 	switch s {
 	case gatt.StatePoweredOn:
-		fmt.Println("Scanning...")
+		fmt.Println("Scanning for '" + foundTd.Name + "'...")
+
 		d.Scan([]gatt.UUID{}, false)
 		return
 	default:
@@ -31,22 +34,20 @@ func onStateChanged(d gatt.Device, s gatt.State) {
 }
 
 func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
-	id := strings.ToUpper(flag.Args()[0])
-	if strings.ToUpper(p.ID()) != id {
-		return
+	if a.LocalName == foundTd.Name {
+
+		// Stop scanning once we've got the peripheral we're looking for.
+		p.Device().StopScanning()
+
+		fmt.Printf("\nPeripheral ID:%s, NAME:(%s)\n", p.ID(), p.Name())
+		fmt.Println("  Local Name        =", a.LocalName)
+		fmt.Println("  TX Power Level    =", a.TxPowerLevel)
+		fmt.Println("  Manufacturer Data =", a.ManufacturerData)
+		fmt.Println("  Service Data      =", a.ServiceData)
+		fmt.Println("")
+
+		p.Device().Connect(p)
 	}
-
-	// Stop scanning once we've got the peripheral we're looking for.
-	p.Device().StopScanning()
-
-	fmt.Printf("\nPeripheral ID:%s, NAME:(%s)\n", p.ID(), p.Name())
-	fmt.Println("  Local Name        =", a.LocalName)
-	fmt.Println("  TX Power Level    =", a.TxPowerLevel)
-	fmt.Println("  Manufacturer Data =", a.ManufacturerData)
-	fmt.Println("  Service Data      =", a.ServiceData)
-	fmt.Println("")
-
-	p.Device().Connect(p)
 }
 
 func onPeriphConnected(p gatt.Peripheral, err error) {
@@ -88,7 +89,9 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 
 			if strings.Contains(c.Properties().String(), "write") {
 				fmt.Println("DONE NOW")
-				p.WriteCharacteristic(c, []byte("ATRV\r\n"), false)
+				for _, cmd := range foundTd.Commands {
+					p.WriteCharacteristic(c, []byte(cmd+"\r\n"), false)
+				}
 			}
 
 			// Read the characteristic, if possible.
@@ -148,12 +151,56 @@ func onPeriphDisconnected(p gatt.Peripheral, err error) {
 	close(done)
 }
 
-func main() {
-	flag.Parse()
-	if len(flag.Args()) != 1 {
-		log.Fatalf("usage: %s [options] peripheral-id\n", os.Args[0])
+func startMsg() {
+	fmt.Println("----------------------------- BrownMundeGo -----------------------------")
+	fmt.Println("| Made by Shuja Hussain & Harry Singh ")
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// SERVER START
+
+type TargetDevice struct {
+	Name     string   `json:"name"`
+	Commands []string `json:"commands"`
+}
+
+func initAttack(w http.ResponseWriter, r *http.Request) {
+	// Declare a new Person struct.
+	var td TargetDevice
+
+	// Try to decode the request body into the struct. If there is an error,
+	// respond to the client with the error message and a 400 status code.
+	err := json.NewDecoder(r.Body).Decode(&td)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
+	// Do something with the TargetDevice struct...
+	fmt.Fprintf(w, "TargetDevice: %+v", td)
+	foundTd = td
+
+	taber()
+}
+
+// An async function that starts a local server
+
+func startServer() {
+	fileServer := http.FileServer(http.Dir("./static"))
+	http.Handle("/", fileServer)
+	http.HandleFunc("/targetdevice/attack", initAttack)
+
+	fmt.Printf("| Starting server at port 8080\n")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// SERVER STOP
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//TODO: CHANGE NAME
+func taber() {
 	d, err := gatt.NewDevice(option.DefaultClientOptions...)
 	if err != nil {
 		log.Fatalf("Failed to open device, err: %s\n", err)
@@ -170,4 +217,9 @@ func main() {
 	d.Init(onStateChanged)
 	<-done
 	fmt.Println("Done")
+}
+
+func main() {
+	startMsg()
+	startServer()
 }
