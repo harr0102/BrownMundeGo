@@ -24,7 +24,8 @@ func onStateChanged(d gatt.Device, s gatt.State) {
 	fmt.Println("State:", s)
 	switch s {
 	case gatt.StatePoweredOn:
-		fmt.Println("Scanning...")
+		fmt.Println("Scanning for '" + foundTd.Name + "'...")
+
 		d.Scan([]gatt.UUID{}, false)
 		return
 	default:

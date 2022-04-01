@@ -1,21 +1,55 @@
+<!-- design from https://www.w3schools.com/css/css_website_layout.asp-->
+<!DOCTYPE html>
 <html>
 
 <head>
   <title>BrownMundeGo</title>
+  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
 <body>
-  <center>
-    <h1>BrownMundeGo</h1>
-  </center>
+  <div class="header">
+    <h1>BrownMunde</h1>
+    <p>Smart Health Vehicle monitor exploitation</p>
+  </div>
+  
+  <div class="row">
+    <div class="leftcolumn">
+      <div class="card">
+        <h2>Attack OBD2-dongle</h2>
+        <h5>ZUS® Smart Vehicle Health Monitor Mini</h5>
+        <p>Bluetooth name of device, you want to attack</p>
+        <input type="text" name="deviceNamexD" id="deviceNamexD" value="VHM-ble"><br/>
+        <p>Commands to be executed towards OBD2-dongle (seperate commands with next line and do not write '\r\n'</p>
+        <textarea id="commandsxD" name="commandsxD" rows="4" cols="50"></textarea> <br/>
+        <input type="button" class="button" value="Begin attack" onclick="run()">
+        <input type="button" class="button1" value="Stop attack">
 
-  <input type="text" name="Tname" id="name" placeholder="Target name"> <br />
-  <textarea id="w3review" name="w3review" rows="4" cols="50"></textarea>
-  <input type="submit" name="submit" value="Scan" onclick="run()">
+      </div>
+    </div>
+    <div class="rightcolumn">
+      <div class="card">
+        <h2>Autorun attacks</h2>
+        <ul>
+          <li><a href="#">attack #1</a></li>
+          <li><a href="#">attack #2</a></li>
+          <li><a href="#">attack #3</a></li>
+          <li><a href="#">attack #4</a></li>
+          <li><a href="#">attack #5</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="footer">
+    <h2>Made by Shuja Hussain (<a href="mailto:shhu@itu.dk">shhu@itu.dk</a>) & Harry Singh (<a href="mailto:hars@itu.dk">hars@itu.dk</a>)</h2>
+  </div>
   <script>
     function run() {
-      const name = document.getElementById("name").value;
-      const commands = document.getElementById("w3review").value.split("\n")
+      const name = document.getElementById("deviceNamexD").value;
+      const commands = document.getElementById("commandsxD").value.split("\n")
 
 
       fetch('/targetdevice/attack', {
