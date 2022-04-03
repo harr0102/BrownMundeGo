@@ -101,27 +101,60 @@
     }
   }
 
+  .attackBtn {
+    cursor:pointer;
+  }
+
   .button {
-    background-color: #f44336; /* Green */
-    border: none;
-    color: white;
-    padding: 15px 32px;
+    display: inline-block;
+    padding: 15px 25px;
+    font-size: 24px;
+    cursor: pointer;
     text-align: center;
     text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
-    cursor:pointer;
+    outline: none;
+    color: #fff;
+    background-color: #f44336;
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 9px #999;
 
   }
   
   .button1 {background-color: #555555;
     border: none;
     color: white;
-    padding: 15px 32px;
+    padding: 8px 24px;
     text-align: center;
     text-decoration: none;
     display: inline-block;
-    font-size: 16px;
+    font-size: 12px;
     cursor:pointer;
 
-} /* Black */
+} 
+
+.button:hover {background-color: #b10d01}
+
+.button1:hover {background-color: #190403}
+
+.button1:active {
+  background-color: #190403;
+  box-shadow: 0 5px rgb(47, 255, 0);
+}
+
+.button:active {
+  background-color: #b10d01;
+  box-shadow: 0 5px #666;
+  transform: translateY(4px);
+}
+
+
+
+#commandList{
+  height: 180px;
+  width: 150px; 
+  }
+
+#outputText {
+  height: 200px;
+}
