@@ -1,6 +1,6 @@
 function run() {
     const name = document.getElementById("deviceNamexD").value;
-    const commands = document.getElementById("commandsxD").value.split("\n")
+    const commands = document.getElementById("commandList").value.split("\n")
 
 
     fetch('/targetdevice/attack', {
