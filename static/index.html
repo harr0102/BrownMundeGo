@@ -22,7 +22,7 @@
         <p>Bluetooth name of device, you want to attack</p>
         <input type="text" name="deviceNamexD" id="deviceNamexD" value="VHM-ble"><br/>
         <p>Commands to be executed towards OBD2-dongle (seperate commands with next line and do not write '\r\n'</p>
-        <textarea id="commandsxD" name="commandsxD" rows="4" cols="50"></textarea> <br/>
+        <textarea id="commandList" name="commandList" rows="4" cols="50"></textarea> <br/>
         <input type="button" class="button" value="Begin attack" onclick="run()">
         <input type="button" class="button1" value="Stop attack">
 
@@ -32,11 +32,10 @@
       <div class="card">
         <h2>Autorun attacks</h2>
         <ul>
-          <li><a href="#">attack #1</a></li>
-          <li><a href="#">attack #2</a></li>
-          <li><a href="#">attack #3</a></li>
-          <li><a href="#">attack #4</a></li>
-          <li><a href="#">attack #5</a></li>
+          <li><button id="dongleInit" class="attackBtn">Load dongle init [DongleScope]</button></li>
+          <li><button id="filter_testBtn" class="attackBtn">Load filter test [DongleScope]</button></li>
+          <li><button id="kmlBtn" class="attackBtn">Load kilometer / litre [DongleScope]</button></li>
+          <li><button id="vinpidBtn" class="attackBtn">Load Read VIN from PID [DongleScope]</button></li>
         </ul>
       </div>
     </div>
@@ -46,28 +45,7 @@
   <div class="footer">
     <h2>Made by Shuja Hussain (<a href="mailto:shhu@itu.dk">shhu@itu.dk</a>) & Harry Singh (<a href="mailto:hars@itu.dk">hars@itu.dk</a>)</h2>
   </div>
-  <script>
-    function run() {
-      const name = document.getElementById("deviceNamexD").value;
-      const commands = document.getElementById("commandsxD").value.split("\n")
-
-
-      fetch('/targetdevice/attack', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: name,
-          commands: commands
-        })
-      })
-        .then(data => {
-          console.log(data)
-        })
-        .catch(error => console.error(error))
-    }
-  </script>
+  <script src="index.js"></script>
 </body>
 
 </html>
