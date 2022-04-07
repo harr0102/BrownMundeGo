@@ -10,22 +10,24 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/paypal/gatt"
 	"github.com/paypal/gatt/examples/option"
 )
 
-var foundTd TargetDevice
-
+var target TargetDevice
 var done = make(chan struct{})
 
+type TargetDevice struct {
+	Name     string   `json:"name"`
+	Commands []string `json:"commands"`
+}
+
 func onStateChanged(d gatt.Device, s gatt.State) {
-	fmt.Println("State:", s)
 	switch s {
 	case gatt.StatePoweredOn:
-		fmt.Println("Scanning for '" + foundTd.Name + "'...")
-
+		fmt.Println("| Scanning for '" + target.Name + "'...")
+		// When a remote peripheral is discovered, the PeripheralDiscovered Handler is called.
 		d.Scan([]gatt.UUID{}, false)
 		return
 	default:
@@ -34,26 +36,30 @@ func onStateChanged(d gatt.Device, s gatt.State) {
 }
 
 func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
-	if a.LocalName == foundTd.Name {
+	if a.LocalName == target.Name {
 
 		// Stop scanning once we've got the peripheral we're looking for.
 		p.Device().StopScanning()
 
-		fmt.Printf("\nPeripheral ID:%s, NAME:(%s)\n", p.ID(), p.Name())
-		fmt.Println("  Local Name        =", a.LocalName)
+		fmt.Println("| Match found: ")
+		fmt.Printf("| Peripheral ID:%s, NAME:(%s)\n", p.ID(), p.Name())
+		/*fmt.Println("  Local Name        =", a.LocalName)
 		fmt.Println("  TX Power Level    =", a.TxPowerLevel)
 		fmt.Println("  Manufacturer Data =", a.ManufacturerData)
 		fmt.Println("  Service Data      =", a.ServiceData)
-		fmt.Println("")
+		fmt.Println("")*/
 
+		// Connect connects to a remote peripheral.
+		fmt.Println("| Trying to connect ...")
 		p.Device().Connect(p)
 	}
 }
 
 func onPeriphConnected(p gatt.Peripheral, err error) {
-	fmt.Println("Connected")
+	fmt.Printf("| Successfully connected to %s \n", p.Name())
 	defer p.Device().CancelConnection(p)
 
+	// Set Maximum transmission unit
 	if err := p.SetMTU(500); err != nil {
 		fmt.Printf("Failed to set MTU, err: %s\n", err)
 	}
@@ -70,7 +76,7 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 		if len(s.Name()) > 0 {
 			msg += " (" + s.Name() + ")"
 		}
-		fmt.Println(msg)
+		fmt.Printf("| Services %s found, but println hides value on purpose. \n", msg)
 
 		// Discovery characteristics
 		cs, err := p.DiscoverCharacteristics(nil, s)
@@ -85,23 +91,24 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 				msg += " (" + c.Name() + ")"
 			}
 			msg += "\n    properties    " + c.Properties().String()
-			fmt.Println(msg)
+			//fmt.Println(msg)
 
 			if strings.Contains(c.Properties().String(), "write") {
-				fmt.Println("DONE NOW")
-				for _, cmd := range foundTd.Commands {
+				fmt.Println("| Writing to target device ...")
+				for _, cmd := range target.Commands {
+					fmt.Printf("| '%s' sent", cmd)
 					p.WriteCharacteristic(c, []byte(cmd+"\r\n"), false)
 				}
 			}
 
 			// Read the characteristic, if possible.
 			if (c.Properties() & gatt.CharRead) != 0 {
-				b, err := p.ReadCharacteristic(c)
+				//b, err := p.ReadCharacteristic(c)
 				if err != nil {
 					fmt.Printf("Failed to read characteristic, err: %s\n", err)
 					continue
 				}
-				fmt.Printf("    value         %x | %q\n", b, b)
+				//fmt.Printf("    value         %x | %q\n", b, b)
 			}
 
 			// Discovery descriptors
@@ -124,13 +131,19 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 					fmt.Printf("Failed to read descriptor, err: %s\n", err)
 					continue
 				}
-				fmt.Printf("    value         %x | %q\n", b, b)
+				fmt.Printf("value %x | %q\n", b, b)
 			}
 
 			// Subscribe the characteristic, if possible.
 			if (c.Properties() & (gatt.CharNotify | gatt.CharIndicate)) != 0 {
 				f := func(c *gatt.Characteristic, b []byte, err error) {
-					fmt.Printf("notified: % X | %q\n", b, b)
+					/*
+						%q	a single-quoted character literal safely escaped with Go syntax.
+						%x	base 16, with lower-case letters for a-f
+						%X	base 16, with upper-case letters for A-F
+					*/
+					// syntax: HE XA HE XA HE XA HE XA | 'convertToText ' | A = HE, B = XA
+					fmt.Printf("| Notified : % X | %q\n | A = '%d', B = '%d'", b, b, b[len(b)-1], b[(len(b)-2)])
 				}
 				if err := p.SetNotifyValue(c, f); err != nil {
 					fmt.Printf("Failed to subscribe characteristic, err: %s\n", err)
@@ -143,7 +156,6 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 	}
 
 	fmt.Printf("Waiting for 60 seconds to get some notifiations, if any.\n")
-	time.Sleep(60 * time.Second)
 }
 
 func onPeriphDisconnected(p gatt.Peripheral, err error) {
@@ -156,15 +168,7 @@ func startMsg() {
 	fmt.Println("| Made by Shuja Hussain & Harry Singh ")
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// SERVER START
-
-type TargetDevice struct {
-	Name     string   `json:"name"`
-	Commands []string `json:"commands"`
-}
-
-func initAttack(w http.ResponseWriter, r *http.Request) {
+func getInformationFromWeb(w http.ResponseWriter, r *http.Request) {
 	// Declare a new Person struct.
 	var td TargetDevice
 
@@ -177,10 +181,13 @@ func initAttack(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Do something with the TargetDevice struct...
-	fmt.Fprintf(w, "TargetDevice: %+v", td)
-	foundTd = td
-
-	taber()
+	fmt.Println("{WEB} Target device received from website.")
+	target = td
+	fmt.Printf("{WEB} target.Name = %s \n", target.Name)
+	commandsSplit := "'" + strings.Join(target.Commands, `','`) + `'`
+	fmt.Printf("{WEB} target.Commands = %s \n", commandsSplit)
+	fmt.Printf(("{WEB} Initialize attack ... \n"))
+	initAttack()
 }
 
 // An async function that starts a local server
@@ -188,7 +195,7 @@ func initAttack(w http.ResponseWriter, r *http.Request) {
 func startServer() {
 	fileServer := http.FileServer(http.Dir("./static"))
 	http.Handle("/", fileServer)
-	http.HandleFunc("/targetdevice/attack", initAttack)
+	http.HandleFunc("/targetdevice/attack", getInformationFromWeb)
 
 	fmt.Printf("| Starting server at port 8080\n")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
@@ -196,11 +203,7 @@ func startServer() {
 	}
 }
 
-// SERVER STOP
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-//TODO: CHANGE NAME
-func taber() {
+func initAttack() {
 	d, err := gatt.NewDevice(option.DefaultClientOptions...)
 	if err != nil {
 		log.Fatalf("Failed to open device, err: %s\n", err)
@@ -216,7 +219,7 @@ func taber() {
 
 	d.Init(onStateChanged)
 	<-done
-	fmt.Println("Done")
+	fmt.Println("| Attack finished")
 }
 
 func main() {
