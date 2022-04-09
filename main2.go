@@ -15,28 +15,22 @@ func NewCountTestService() *gatt.Service {
 
 	s := gatt.NewService(gatt.MustParseUUID("0000fff0-0000-1000-8000-00805f9b34fb"))
 
-	s.EndHandle()
-
-	s.AddCharacteristic(gatt.MustParseUUID("0000fff0-0000-1000-8000-00805f9b34fb")).HandleNotifyFunc(
-		func(r gatt.Request, n gatt.Notifier) {
-			go func() {
-				log.Printf("TODO: indicate client when the services are changed 1")
-			}()
-		})
+	var x gatt.Notifier
 
 	s.AddCharacteristic(gatt.MustParseUUID("0000fff1-0000-1000-8000-00805f9b34fb")).HandleNotifyFunc(
 		func(r gatt.Request, n gatt.Notifier) {
 			go func() {
 				log.Printf("TODO: indicate client when the services are changed 2 ")
-				var data = ([]byte("13.5V\r>"))
-				n.Write(data)
+				x = n
 			}()
 		})
-	s.AddCharacteristic(gatt.MustParseUUID("0000fff2-0000-1000-8000-00805f9b34fb")).HandleNotifyFunc(
-		func(r gatt.Request, n gatt.Notifier) {
-			go func() {
-				log.Printf("TODO: indicate client when the services are changed 3")
-			}()
+	s.AddCharacteristic(gatt.MustParseUUID("0000fff2-0000-1000-8000-00805f9b34fb")).HandleWriteFunc(
+		func(r gatt.Request, data []byte) (status byte) {
+			log.Println("Wrote:", string(data))
+			fmt.Fprintf(x, "13.V\r>")
+			var data2 = ([]byte("13.5V\r>"))
+			x.Write(data2)
+			return gatt.StatusSuccess
 		})
 	return s
 }
