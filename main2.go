@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/paypal/gatt"
 	"github.com/paypal/gatt/examples/option"
@@ -26,10 +27,18 @@ func NewCountTestService() *gatt.Service {
 		})
 	s.AddCharacteristic(gatt.MustParseUUID("0000fff2-0000-1000-8000-00805f9b34fb")).HandleWriteFunc(
 		func(r gatt.Request, data []byte) (status byte) {
-			log.Println("Wrote:", string(data))
-			fmt.Fprintf(x, "13.V\r>")
-			var data2 = ([]byte("13.5V\r>"))
-			x.Write(data2)
+			var dataToString = string(data)
+			log.Println("Wrote: ", dataToString)
+			var Z = ([]byte("ELM327 V1.5\r>"))
+			var RV = ([]byte("20.5V\r>"))
+
+			switch true {
+			case strings.Contains(dataToString, "Z"):
+				x.Write(Z)
+			case strings.Contains(dataToString, "RV"):
+				x.Write(RV)
+			}
+
 			return gatt.StatusSuccess
 		})
 	return s
