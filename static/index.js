@@ -1,4 +1,17 @@
-function run() {
+function manInTheMiddleAttack() {
+    fetch('/targetdevice/maninthemiddleattack', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        })
+        .then(data => {
+            console.log(data)
+        })
+        .catch(error => console.error(error))
+}
+
+function dongleAttack() {
     const name = document.getElementById("deviceNamexD").value;
     const commands = document.getElementById("commandList").value.split("\n")
 
