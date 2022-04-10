@@ -17,29 +17,11 @@
   <div class="row">
     <div class="leftcolumn">
       <div class="card">
-        <h2>Attack OBD2-dongle</h2>
+        <h2>Choose your type of attack</h2>
         <h5>ZUS® Smart Vehicle Health Monitor Mini</h5>
         <p>Bluetooth name of device, you want to attack</p>
-        <input type="text" name="deviceNamexD" id="deviceNamexD" value="VHM-ble"><br/>
-        <p>Commands to be executed towards OBD2-dongle (seperate commands with next line and do not write '\r\n'</p>
-        <textarea id="commandList" name="commandList" rows="4" cols="50"></textarea> <br/>
-        <input type="button" class="button" value="Begin attack" onclick="run()">
-        <input type="button" class="button1" value="Stop attack"> <br />
-        <br/>
-        <p>Output</p> <br/>
-        <textarea readonly id="outputText"></textarea>
-
-      </div>
-    </div>
-    <div class="rightcolumn">
-      <div class="card">
-        <h2>Autorun attacks</h2>
-        <ul>
-          <li><button id="dongleInit" class="attackBtn">Load dongle init [DongleScope]</button></li>
-          <li><button id="filter_testBtn" class="attackBtn">Load filter test [DongleScope]</button></li>
-          <li><button id="kmlBtn" class="attackBtn">Load kilometer / litre [DongleScope]</button></li>
-          <li><button id="vinpidBtn" class="attackBtn">Load Read VIN from PID [DongleScope]</button></li>
-        </ul>
+        <input type="button" class="button" value="Dongle attack" onclick="window.location.href='/dongle-attack.html'">
+        <input type="button" class="button" value="Man-in-the-Middle attack" onclick="window.location.href='/man-in-the-middle-attack.html'">
       </div>
     </div>
   </div>
@@ -48,7 +30,6 @@
   <div class="footer">
     <h2>Made by Shuja Hussain (<a href="mailto:shhu@itu.dk">shhu@itu.dk</a>) & Harry Singh (<a href="mailto:hars@itu.dk">hars@itu.dk</a>)</h2>
   </div>
-  <script src="index.js"></script>
 </body>
 
 </html>
