@@ -24,8 +24,7 @@ func onStateChanged(d gatt.Device, s gatt.State) {
 	fmt.Println("State:", s)
 	switch s {
 	case gatt.StatePoweredOn:
-		fmt.Println("Scanning for '" + foundTd.Name + "'...")
-
+		fmt.Println("Scanning...")
 		d.Scan([]gatt.UUID{}, false)
 		return
 	default:
@@ -57,7 +56,7 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 	if err := p.SetMTU(500); err != nil {
 		fmt.Printf("Failed to set MTU, err: %s\n", err)
 	}
-	fmt.Println("lol")
+
 	// Discovery services
 	ss, err := p.DiscoverServices(nil)
 	if err != nil {
@@ -89,9 +88,7 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 
 			if strings.Contains(c.Properties().String(), "write") {
 				fmt.Println("DONE NOW")
-				for _, cmd := range foundTd.Commands {
-					p.WriteCharacteristic(c, []byte(cmd+"\r\n"), false)
-				}
+				p.WriteCharacteristic(c, []byte("ATZ\r\n"), false)
 			}
 
 			// Read the characteristic, if possible.

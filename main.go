@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/paypal/gatt"
 	"github.com/paypal/gatt/examples/option"
@@ -56,8 +57,8 @@ func NewCountTestService() *gatt.Service {
 	s.AddCharacteristic(gatt.MustParseUUID("0000fff2-0000-1000-8000-00805f9b34fb")).HandleWriteFunc(
 		func(r gatt.Request, data []byte) (status byte) {
 			fmt.Println("| Ready to handle data from phone")
-			isPhoneConnected = true
 			publicDataFromPhone = data // data sent to dongle
+			isPhoneConnected = true
 			for len(publicDataFromDongle) == 0 {
 				// infinite loop waiting on notification from dongle
 			}
@@ -85,7 +86,7 @@ func connectToPhone(gd gatt.Device) {
 		gatt.CentralConnected(func(c gatt.Central) {
 			fmt.Println("| Phone is connected, connections id: ", c.ID())
 		}),
-		gatt.CentralDisconnected(func(c gatt.Central) { isPhoneConnected = false; fmt.Println("Disconnect: ", c.ID()) }),
+		gatt.CentralDisconnected(func(c gatt.Central) { fmt.Println("Disconnect: ", c.ID()) }),
 	)
 	// A mandatory handler for monitoring device state.
 	onStateChanged := func(d gatt.Device, s gatt.State) {
@@ -116,14 +117,13 @@ func connectToPhone(gd gatt.Device) {
 }
 
 func onPeriphConnected(p gatt.Peripheral, err error) {
-	fmt.Printf("| Successfully connected to %s \n", p.Name())
-	isDongleConnected = true
+	fmt.Println("| Dongle is connected.")
 	defer p.Device().CancelConnection(p)
-	fmt.Println("| Phone is connected, try discover services ...")
-	// Set Maximum transmission unit
+
 	if err := p.SetMTU(500); err != nil {
 		fmt.Printf("Failed to set MTU, err: %s\n", err)
 	}
+
 	// Discovery services
 	ss, err := p.DiscoverServices(nil)
 	if err != nil {
@@ -136,7 +136,7 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 		if len(s.Name()) > 0 {
 			msg += " (" + s.Name() + ")"
 		}
-		fmt.Printf("| Services %s found, but println hides value on purpose. \n", msg)
+		fmt.Println(msg)
 
 		// Discovery characteristics
 		cs, err := p.DiscoverCharacteristics(nil, s)
@@ -151,26 +151,25 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 				msg += " (" + c.Name() + ")"
 			}
 			msg += "\n    properties    " + c.Properties().String()
-			//fmt.Println(msg)
+			fmt.Println(msg)
 
 			if strings.Contains(c.Properties().String(), "write") {
-				fmt.Println("| Ready to write to dongle ...")
+				fmt.Println("| Ready to write commands towards dongle ... ")
+				isDongleConnected = true
+				//p.WriteCharacteristic(c, []byte("ATZ\r\n"), false)
 				for isPhoneConnected && len(publicDataFromPhone) != 0 {
-					// infinite loop until phone connection is removed
-					p.WriteCharacteristic(c, publicDataFromPhone, false)
-					publicDataFromPhone = []byte("")
-					fmt.Println("Phone -> RPI -> Dongle")
+					p.WriteCharacteristic(c, []byte("ATZ\r\n"), false)
 				}
 			}
 
 			// Read the characteristic, if possible.
 			if (c.Properties() & gatt.CharRead) != 0 {
-				//b, err := p.ReadCharacteristic(c)
+				b, err := p.ReadCharacteristic(c)
 				if err != nil {
 					fmt.Printf("Failed to read characteristic, err: %s\n", err)
 					continue
 				}
-				//fmt.Printf("    value         %x | %q\n", b, b)
+				fmt.Printf("    value         %x | %q\n", b, b)
 			}
 
 			// Discovery descriptors
@@ -193,19 +192,13 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 					fmt.Printf("Failed to read descriptor, err: %s\n", err)
 					continue
 				}
-				fmt.Printf("value %x | %q\n", b, b)
+				fmt.Printf("    value         %x | %q\n", b, b)
 			}
 
 			// Subscribe the characteristic, if possible.
 			if (c.Properties() & (gatt.CharNotify | gatt.CharIndicate)) != 0 {
 				f := func(c *gatt.Characteristic, b []byte, err error) {
-					/*
-						%q	a single-quoted character literal safely escaped with Go syntax.
-						%x	base 16, with lower-case letters for a-f
-						%X	base 16, with upper-case letters for A-F
-					*/
-					// syntax: HE XA HE XA HE XA HE XA | 'convertToText ' | A = HE, B = XA
-					fmt.Printf("| Notified : % X | %q\n | A = '%d', B = '%d'", b, b, b[len(b)-1], b[(len(b)-2)])
+					fmt.Printf("notified: % X | %q\n", b, b)
 				}
 				if err := p.SetNotifyValue(c, f); err != nil {
 					fmt.Printf("Failed to subscribe characteristic, err: %s\n", err)
@@ -217,7 +210,8 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 		fmt.Println()
 	}
 
-	fmt.Printf("Waiting for 60 seconds to get some notifiations, if any.\n")
+	fmt.Printf("Waiting for 120 seconds to get some notifiations, if any.\n")
+	time.Sleep(120 * time.Second)
 }
 
 func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
