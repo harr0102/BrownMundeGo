@@ -171,16 +171,18 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 			if strings.Contains(c.Properties().String(), "write") {
 				fmt.Println("| Ready to write commands towards dongle ... ")
 				isDongleConnected = true
-				for isPhoneConnected && len(publicDataFromPhone) != 0 {
+				for isPhoneConnected {
+					for len(publicDataFromPhone) != 0 {
+					fmt.Println("we are inside loop")
 					var stringData = string(publicDataFromPhone)
 					switch {
 					case strings.Contains(stringData, "AT RV"):
 						ATcommand = "RV"
 					}
 					p.WriteCharacteristic(c, publicDataFromPhone, false)
-					publicDataFromPhone = []byte("")
-					
+					publicDataFromPhone = []byte("")		
 				}
+			}
 			}
 
 			// Read the characteristic, if possible.
