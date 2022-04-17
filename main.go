@@ -22,6 +22,7 @@ var isPhoneConnected bool
 var isDongleConnected bool
 var publicDataFromPhone []byte
 var publicDataFromDongle []byte
+var tmpDataFromDongle string
 var ATcommand string
 var done = make(chan struct{})
 
@@ -74,7 +75,7 @@ func NewCountTestService() *gatt.Service {
 			switch {
 			case ATcommand == "RV":
 				// modify voltage from dongle
-				dataBack = []byte("69.5V\r>")
+				//dataBack = []byte("69.5V\r>")
 			}
 			ATcommand = ""
 			//publicDataFromDongle = []byte("ELM327 v1.5\r>")
@@ -173,7 +174,6 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 				isDongleConnected = true
 				for isPhoneConnected {
 					for len(publicDataFromPhone) != 0 {
-					fmt.Println("we are inside loop")
 					var stringData = string(publicDataFromPhone)
 					switch {
 					case strings.Contains(stringData, "AT RV"):
@@ -222,13 +222,21 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 			if (c.Properties() & (gatt.CharNotify | gatt.CharIndicate)) != 0 {
 				f := func(c *gatt.Characteristic, b []byte, err error) {
 					// notify back to RPI -> Phone:
+					var stringNotification = string(b)
+					tmpDataFromDongle = tmpDataFromDongle + stringNotification
 
-					publicDataFromDongle = b
-					fmt.Printf("notified: % X | %q\n", b, b)
+					switch {
+					case strings.Contains(stringNotification, ">"):
+						publicDataFromDongle = []byte(tmpDataFromDongle)
+						//fmt.Println("notified back: " + tmpDataFromDongle)
+						tmpDataFromDongle = ""
+					}
+					//fmt.Printf("notified: % X | %q\n", b, b)
 				}
 				if err := p.SetNotifyValue(c, f); err != nil {
 					fmt.Printf("Failed to subscribe characteristic, err: %s\n", err)
 					continue
+					
 				}
 			}
 
@@ -345,7 +353,7 @@ func fakeOutput() {
 		case strings.Contains(stringData, "013C"):
 			publicDataFromDongle = []byte("83F1117F011217\r\r>")
 		case strings.Contains(stringData, "ATMA"):
-			publicDataFromDongle = []byte("?\r>?\r>")
+			publicDataFromDongle = []byte("?\r?\r>")
 		case strings.Contains(stringData, "AT RV"):
 			ATcommand = "RV"
 			publicDataFromDongle = []byte("12.3V\r>")
