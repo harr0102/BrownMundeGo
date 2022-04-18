@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"strconv"
 
 	"github.com/paypal/gatt"
 	"github.com/paypal/gatt/examples/option"
@@ -43,6 +44,24 @@ func startServer() {
 	}
 }
 
+func getHexRPM(x []byte) []byte {
+	fmt.Println("getHexRPM() called\n")
+	fmt.Println(x)
+	fmt.Println("\n")	
+	var lastFour = string(x[len(x)-4:])
+	value, err := strconv.ParseInt(lastFour, 16, 64)
+	if err != nil {
+		fmt.Printf ("Conversion failed: %s\n", err)
+	}
+	newVal := float64(value)*1.5 // expects 5076
+	hex_value := strconv.FormatInt(int64(newVal), 16)
+	fmt.Println(hex_value) 
+	nx := string(x[:len(x)-4]) + string(hex_value)
+	fmt.Println(nx) 
+	nxToByte := []byte(nx)
+	return nxToByte
+}
+
 func NewCountTestService() *gatt.Service {
 
 	s := gatt.NewService(gatt.MustParseUUID("0000fff0-0000-1000-8000-00805f9b34fb"))
@@ -59,11 +78,10 @@ func NewCountTestService() *gatt.Service {
 	s.AddCharacteristic(gatt.MustParseUUID("0000fff2-0000-1000-8000-00805f9b34fb")).HandleWriteFunc(
 		func(r gatt.Request, data []byte) (status byte) {
 			fmt.Println("| Ready to handle data from phone")
-			fmt.Println("| Waiting for dongle to connect ...")
 			isPhoneConnected = true
-			for isDongleConnected == false {
+			//for isDongleConnected == false {
 				// waiting for dongle is connected
-			}
+			//}
 			fmt.Println("| Phone sent: " + string(data))
 			publicDataFromPhone = data // data sent to dongle
 			for len(publicDataFromDongle) == 0 {
@@ -76,6 +94,10 @@ func NewCountTestService() *gatt.Service {
 			case ATcommand == "RV":
 				// modify voltage from dongle
 				//dataBack = []byte("69.5V\r>")
+			case ATcommand == "010C":
+				// Modify RPM
+				fmt.Println("I am called HIHI")
+				dataBack = getHexRPM(dataBack) // default, increase RPM by 50% = 1.5
 			}
 			ATcommand = ""
 			//publicDataFromDongle = []byte("ELM327 v1.5\r>")
@@ -178,7 +200,10 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 					switch {
 					case strings.Contains(stringData, "AT RV"):
 						ATcommand = "RV"
+					case strings.Contains(stringData, "010C"):
+						ATcommand = "010C"
 					}
+					
 					p.WriteCharacteristic(c, publicDataFromPhone, false)
 					publicDataFromPhone = []byte("")		
 				}
