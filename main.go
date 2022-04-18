@@ -44,20 +44,34 @@ func startServer() {
 	}
 }
 
-func getHexRPM(x []byte) []byte {
+func getHexRPM(x []byte, pctIncrease float64) []byte {
 	fmt.Println("getHexRPM() called\n")
 	fmt.Println(x)
-	fmt.Println("\n")	
-	var lastFour = string(x[len(x)-4:])
+	fmt.Println("\n")
+	fmt.Println("x to string = " + string(x))
+	xs := string(x)
+	var lastFour = xs[len(xs)-7:]
+	lastFour = strings.Replace(lastFour, "\r", "", 2)
+	lastFour = strings.Replace(lastFour, ">", "", 1)
+	fmt.Println("x to string = " + lastFour)
+	
 	value, err := strconv.ParseInt(lastFour, 16, 64)
 	if err != nil {
 		fmt.Printf ("Conversion failed: %s\n", err)
 	}
-	newVal := float64(value)*1.5 // expects 5076
+	fmt.Println("VALUE BEFORE  = ")
+	fmt.Println(value)
+	
+	newVal := float64(value)*pctIncrease
+	fmt.Println("VALUE AFTER  = ")
+	fmt.Println(newVal)
+
 	hex_value := strconv.FormatInt(int64(newVal), 16)
+
 	fmt.Println(hex_value) 
-	nx := string(x[:len(x)-4]) + string(hex_value)
-	fmt.Println(nx) 
+
+	nx := xs[:len(xs)-7] + string(hex_value) + "\r\r>"
+	fmt.Println("ns: = " + nx) 
 	nxToByte := []byte(nx)
 	return nxToByte
 }
@@ -97,11 +111,12 @@ func NewCountTestService() *gatt.Service {
 			case ATcommand == "010C":
 				// Modify RPM
 				fmt.Println("I am called HIHI")
-				dataBack = getHexRPM(dataBack) // default, increase RPM by 50% = 1.5
+				dataBack = getHexRPM(dataBack, 1.5) // default, increase RPM by 50% = 1.5
 			}
 			ATcommand = ""
 			//publicDataFromDongle = []byte("ELM327 v1.5\r>")
 			phone.Write(dataBack)
+			dataBack = []byte("")
 			fmt.Println("Dongle -> RPI -> Phone")
 			return gatt.StatusSuccess
 
