@@ -93,9 +93,9 @@ func NewCountTestService() *gatt.Service {
 		func(r gatt.Request, data []byte) (status byte) {
 			fmt.Println("| Ready to handle data from phone")
 			isPhoneConnected = true
-			//for isDongleConnected == false {
+			for isDongleConnected == false {
 				// waiting for dongle is connected
-			//}
+			}
 			fmt.Println("| Phone sent: " + string(data))
 			publicDataFromPhone = data // data sent to dongle
 			for len(publicDataFromDongle) == 0 {
@@ -107,10 +107,9 @@ func NewCountTestService() *gatt.Service {
 			switch {
 			case ATcommand == "RV":
 				// modify voltage from dongle
-				//dataBack = []byte("69.5V\r>")
+				dataBack = []byte("50.5V\r>")
 			case ATcommand == "010C":
 				// Modify RPM
-				fmt.Println("I am called HIHI")
 				dataBack = getHexRPM(dataBack, 1.5) // default, increase RPM by 50% = 1.5
 			}
 			ATcommand = ""
