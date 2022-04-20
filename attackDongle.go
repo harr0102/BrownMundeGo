@@ -50,7 +50,7 @@ func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
 }
 
 func onPeriphConnected(p gatt.Peripheral, err error) {
-	fmt.Println("Connected")
+	fmt.Println("Connected to dongle")
 	defer p.Device().CancelConnection(p)
 
 	if err := p.SetMTU(500); err != nil {
@@ -87,6 +87,8 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 			fmt.Println(msg)
 
 			if strings.Contains(c.Properties().String(), "write") {
+				fmt.Println("Commands to send:")
+				fmt.Println(foundTd.Commands)
 				for _, cmd := range foundTd.Commands {
 					fmt.Printf("| '%s' sent", cmd)
 					p.WriteCharacteristic(c, []byte(cmd+"\r\n"), false)
