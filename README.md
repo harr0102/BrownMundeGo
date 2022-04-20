@@ -22,5 +22,7 @@ Harry Singh (hars@itu.dk)
   <code>sudo go run ./mitma.go --autostart on</code>
 </ol>
 
-<br />
 
+<h2> How to attack OBD2-dongle</h2>
+<p>If you wish to execute commands towards the OBD2-dongle. This can be used to read fuel level, voltage, etc.</p>
+<code>sudo go run ./attackDongle.go</code>
