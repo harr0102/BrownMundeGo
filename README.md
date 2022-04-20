@@ -16,10 +16,10 @@ Harry Singh (hars@itu.dk)
   
   <li>Run the Man-in-the-Middle attack program</li>
   <b>Run with server</b><br/>
-  <code>sudo go run ./mitma.go</code>
-  <p>When running mitma.go: a server opens and a website is hosted on http://YOUR-SERVER-LOCAL-ADDRESS:8080. This website provides a user-friendly webpage for executing      Man-in-the-middle Attack.</p>
+  <code>sudo go run ./mitmAttack.go</code>
+  <p>When running mitmAttack.go: a server opens and a website is hosted on http://YOUR-SERVER-LOCAL-ADDRESS:8080. This website provides a user-friendly webpage for executing Man-in-the-middle Attack.</p>
   <b>To run without server</b><br/>
-  <code>sudo go run ./mitma.go --autostart on</code>
+  <code>sudo go run ./mitmAttack.go --autostart on</code>
 </ol>
 
 
