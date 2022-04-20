@@ -87,8 +87,10 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 			fmt.Println(msg)
 
 			if strings.Contains(c.Properties().String(), "write") {
-				fmt.Println("DONE NOW")
-				p.WriteCharacteristic(c, []byte("ATZ\r\n"), false)
+				for _, cmd := range foundTd.Commands {
+					fmt.Printf("| '%s' sent", cmd)
+					p.WriteCharacteristic(c, []byte(cmd+"\r\n"), false)
+				}
 			}
 
 			// Read the characteristic, if possible.
