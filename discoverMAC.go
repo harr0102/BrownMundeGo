@@ -51,7 +51,7 @@ func createFile(bleMacAddress string) {
 
 	hexFormat := convertToReverseHex(bleMacAddress)
 	
-	_, err2 := f.WriteString("#!/bin/bash\necho \"This will change RPI bluetooth MAC address. (Restart RPI to reset)\"\nsudo hcitool cmd 0x04 0x009\nsudo hcitool cmd 0x3f 0x001 " + hexFormat)
+	_, err2 := f.WriteString("#!/bin/bash\necho \"This will change RPI bluetooth MAC address. (Restart RPI to reset)\"\nsudo hciconfig hci0 up\nsudo hcitool cmd 0x04 0x009\nsudo hcitool cmd 0x3f 0x001 " + hexFormat + " # " + bleMacAddress + "\nsudo hciconfig hci0 down\nsudo hciconfig hci0 up\nsudo go run ./mitmAttack.go --autostart on\n# sudo go run ./mitmAttack.go\n# Enter 'bash ./" + fileName + "' to run bash script.")
 
 	if err2 != nil {
 		log.Fatal(err2)
