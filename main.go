@@ -25,7 +25,6 @@ var dongleSent bool
 var isPhoneConnected bool
 var isDongleConnected bool
 var autoConnect bool
-var dongleReconnect bool
 
 
 var tmpDongleData string
@@ -159,31 +158,25 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 			if (strings.Contains(c.Properties().String(), "write")) {
 				for isPhoneConnected {
 					fmt.Println("| Ready to write commands towards dongle ... ")
-					for phoneSent == false && dongleReconnect == false {
+					publicDongleData = []byte("NO DATA\r>") // In case of lost connection with Dongle
+					dongleSent = true
+					for phoneSent == false {
 						// Awaiting data from Phone to be sent towards the Dongle ...
 					}
 					phoneSent = false // Data from phone was recieved, reset state to false.
-					if dongleReconnect {
-						var stringLastSaved = string(lastSavedPhoneData)
-						fmt.Println("Reconnect ...  " + stringLastSaved)
-						publicDongleData = []byte("NO DATA\r>")
-						fmt.Println(">> Dongle sent data back")
-						dongleSent = true
-						dongleReconnect = false
-					} else {
-						lastSavedPhoneData = publicPhoneData
-						var stringData = string(publicPhoneData)
-						// stringData - for modifying data, please add to ATcommand - which specific data should be modified.
-						switch {
-						case strings.Contains(stringData, "AT RV"): // AT RV = BATTERY VOLTAGE
-							ATcommand = "RV"
-						case strings.Contains(stringData, "010C"): // 010C = RPM
-							ATcommand = "010C"
-						}
-						
-						p.WriteCharacteristic(c, publicPhoneData, false)
-						publicPhoneData = []byte("")
+					lastSavedPhoneData = publicPhoneData
+					var stringData = string(publicPhoneData)
+					// stringData - for modifying data, please add to ATcommand - which specific data should be modified.
+					switch {
+					case strings.Contains(stringData, "AT RV"): // AT RV = BATTERY VOLTAGE
+						ATcommand = "RV"
+					case strings.Contains(stringData, "010C"): // 010C = RPM
+						ATcommand = "010C"
 					}
+					
+					p.WriteCharacteristic(c, publicPhoneData, false)
+					publicPhoneData = []byte("")
+				
 				}
 			}
 
@@ -223,7 +216,6 @@ func onPeriphDisconnected(p gatt.Peripheral, err error) {
 	phoneSent = false
 	if autoConnect {
 		fmt.Println("Dongle autoconnecting ON")
-		dongleReconnect = true
 		connectToDongle()
 	} else {
 	close(done)
@@ -355,7 +347,6 @@ func main() {
 	isDongleConnected = false
 	phoneSent = false
 	dongleSent = false
-	dongleReconnect = false
 	beginAttack()
 }
 
