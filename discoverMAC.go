@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-
 	"github.com/paypal/gatt"
 	"github.com/paypal/gatt/examples/option"
 )
 
 var deviceName string
-
 
 func convertToReverseHex(bleMacAddress string) string {
 	// This functions converts MAC Address to reverse order in hex format.
@@ -51,7 +49,7 @@ func createFile(bleMacAddress string) {
 
 	hexFormat := convertToReverseHex(bleMacAddress)
 	
-	_, err2 := f.WriteString("#!/bin/bash\necho \"This will change RPI bluetooth MAC address. (Restart RPI to reset)\"\nsudo hciconfig hci0 up\nsudo hcitool cmd 0x04 0x009\nsudo hcitool cmd 0x3f 0x001 " + hexFormat + " # " + bleMacAddress + "\nsudo hciconfig hci0 down\nsudo hciconfig hci0 up\nsudo go run ./mitmAttack.go --autostart on\n# sudo go run ./mitmAttack.go\n# Enter 'bash ./" + fileName + "' to run bash script.")
+	_, err2 := f.WriteString("#!/bin/bash\necho \"This will change RPI bluetooth MAC address. (Restart RPI to reset)\"\nsudo hciconfig hci0 up\nsudo hcitool cmd 0x04 0x009\nsudo hcitool cmd 0x3f 0x001 " + hexFormat + " # " + bleMacAddress + "\nsudo hciconfig hci0 down\nsudo hciconfig hci0 up\nsudo go run ./mitmAttack.go " + bleMacAddress +" > outputMitmAttack.txt\n# Enter 'bash ./" + fileName + "' to run bash script.")
 
 	if err2 != nil {
 		log.Fatal(err2)
@@ -82,7 +80,8 @@ func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
 		fmt.Println("TX Power Level    =", a.TxPowerLevel)
 		fmt.Println("Manufacturer Data =", a.ManufacturerData)
 		fmt.Println("Service Data      =", a.ServiceData)
-		fmt.Println("> ... CTRL + C to end program.")
+		p.Device().StopScanning()
+		os.Exit(1) // exit program
 	}
 }
 
@@ -99,5 +98,4 @@ func main() {
 	d.Handle(gatt.PeripheralDiscovered(onPeriphDiscovered))
 	d.Init(onStateChanged)
 	select {}
-
 }
