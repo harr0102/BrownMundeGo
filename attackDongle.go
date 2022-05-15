@@ -1,6 +1,7 @@
 // Created by Shuja Hussain (shhu@itu.dk) & Harry Singh (hars@itu.dk)
 // This file is built using PayPal's Go Package: https://pkg.go.dev/github.com/paypal/gatt
 // The package has made it possible for us to establish BLE connection which supports our bachelor project in Smart Health Vehicle monitor exploitation.
+// Running this file opens a frontend server at https://YOUR-LOCAL-ADDRESS:8080
 
 package main
 
