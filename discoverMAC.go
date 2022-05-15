@@ -1,3 +1,8 @@
+// Created by Shuja Hussain (shhu@itu.dk) & Harry Singh (hars@itu.dk)
+// This file is built using PayPal's Go Package: https://pkg.go.dev/github.com/paypal/gatt
+// The package has made it possible for us to establish BLE connection which supports our bachelor project in Smart Health Vehicle monitor exploitation.
+// Running this file discovers the MAC address for the BLE target and creates a file called macSpoof.sh, that contains commands for changing the RPI MAC address and starts ./mitmAttack.go
+
 package main
 
 import (
