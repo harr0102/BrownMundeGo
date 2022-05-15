@@ -1,6 +1,6 @@
 // Created by Shuja Hussain (shhu@itu.dk) & Harry Singh (hars@itu.dk)
-// The original source code can be found on this: https://pkg.go.dev/github.com/paypal/gatt / https://pkg.go.dev/github.com/paypal/gatt
-// This version has been modified to support our bachelor project in Smart Health Vehicle monitor exploitation
+// This file is built using PayPal's Go Package: https://pkg.go.dev/github.com/paypal/gatt
+// The package has made it possible for us to establish BLE connection which supports our bachelor project in Smart Health Vehicle monitor exploitation.
 
 package main
 
