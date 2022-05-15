@@ -181,7 +181,7 @@ func initAttack(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "TargetDevice: %+v", td)
 	foundTd = td
 
-	taber()
+	startGattDevice()
 }
 
 // An async function that starts a local server
@@ -200,8 +200,7 @@ func startServer() {
 // SERVER STOP
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//TODO: CHANGE NAME
-func taber() {
+func startGattDevice() {
 	d, err := gatt.NewDevice(option.DefaultClientOptions...)
 	if err != nil {
 		log.Fatalf("Failed to open device, err: %s\n", err)
